@@ -1,0 +1,111 @@
+version: "2"
+services:
+  nginx:
+      container_name: nginx
+      build:
+          context: ./nginx
+      ports:
+          - "8080:80"
+      volumes:
+          - ./projects:/var/www:z
+          - ./data:/data:z
+          - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+          - ./nginx/influencing.conf:/etc/nginx/conf.d/influencing.conf
+          - ./nginx/portal.influencing.conf:/etc/nginx/conf.d/portal.influencing.conf
+          - ./nginx/i.influencing.conf:/etc/nginx/conf.d/i.influencing.conf
+      links:
+          - "fpm"
+          - "realtime"
+  fpm:
+      container_name: fpm
+      build:
+          context: ./fpm
+      volumes:
+          - ./projects:/var/www:z
+          - ./data:/data:z
+          - ./fpm/cli/php.ini:/etc/php/5.6/cli/php.ini
+          - ./fpm/fpm/php.ini:/etc/php/5.6/fpm/php.ini
+      expose:
+          - "9000"
+      links:
+          - "mysql"
+          - "redis"
+          - "mongo"
+          - "memcached"
+          - "phpmyadmin"
+  mysql:
+      container_name: mysql
+      image: mariadb
+      environment:
+          - MYSQL_ROOT_PASSWORD=root
+          - MYSQL_DATABASE=influencing
+      volumes:
+          - ./databases/mysql:/var/lib/mysql:z
+  phpmyadmin:
+      image: phpmyadmin/phpmyadmin
+      container_name: phpmyadmin
+      volumes:
+          - ./phpmyadmin/config.user.inc.php:/etc/phpmyadmin/config.user.inc.php
+      environment:
+          - SESSION_TIMEOUT=2592000
+          - PMA_ARBITARY=1
+      ports:
+          - "8181:80"
+  redis:
+      image: redis
+      container_name: redisdb
+      ports:
+          - "6380:6379"
+  mongo:
+      image: mongo
+      container_name: mongo
+      ports:
+          - "27019:27017"
+      volumes:
+          - ./databases/mongo:/var/lib/mongo:z
+  memcached:
+      image: memcached
+      container_name: memcached
+      ports:
+          - "11212:11211"
+  rabbit:
+      container_name: dev-rabbit
+      hostname: rabbit
+      image: rabbitmq:3.6.6-management
+      environment:
+          - RABBITMQ_DEFAULT_USER = user
+          - RABBITMQ_DEFAULT_PASS = user
+      ports:
+          - "5673:5672"
+          - "15674:15672"
+  realtime:
+      container_name: realtime-chat
+      build:
+          context: ./realtime
+      volumes:
+          - ./realtime:/var/www/realtime
+      expose:
+          - "3000"
+      links:
+          - "redis"
+  sphinx:
+      container_name: dev-sphinx
+      build:
+          context: ./sphinxsearch
+      volumes:
+          - ./sphinxsearch/sphinx.conf:/etc/sphinxsearch/sphinx.conf
+          - ./sphinxsearch/sphinxsearch:/etc/default/sphinxsearch
+          - ./sphinxsearch/data:/sphinx/data
+      ports:
+          - "9311:9306"
+      links:
+          - "mysql"
+  frontend:
+      container_name: frontend-builder
+      build:
+          context: ./frontend
+      ports:
+          - "3030:3030"
+          - "35729:35729"
+      volumes:
+          - ./projects/influencing:/var/www/influencing:z
